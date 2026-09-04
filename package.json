@@ -1,0 +1,43 @@
+{
+  "name": "@cic-it-nancy/dicom-brush",
+  "version": "1.0.0",
+  "description": "A TypeScript/JavaScript library for manipulating DICOM images, enabling redaction (masking) of image regions, metadata extraction, and transfer syntax transcoding.",
+  "license": "LGPL-3.0",
+  "author": "CIC-IT Nancy",
+  "repository": "https://github.com/CIC-IT-Nancy/dicom-brush",
+  "bugs": "https://github.com/CIC-IT-Nancy/dicom-brush/issues",
+  "contributors": [
+    {
+      "name": "Pierre 'AlasDiablo' M",
+      "url": "https://github.com/AlasDiablo"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json",
+    "prepublish": "npm run build"
+  },
+  "type": "module",
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./types/index.d.ts",
+  "files": [
+    "./lib/*",
+    "./types/*"
+  ],
+  "dependencies": {
+    "dcmjs": "~0.50.1",
+    "dcmjs-codecs": "~0.0.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.34.0",
+    "@stylistic/eslint-plugin": "5.3.1",
+    "@types/b4a": "1.6.5",
+    "eslint": "9.34.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-prettier": "5.5.4",
+    "globals": "16.3.0",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.42.0"
+  }
+}
