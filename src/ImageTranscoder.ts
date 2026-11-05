@@ -1,10 +1,10 @@
-import ImageReader from './ImageReader';
-
 // @ts-expect-error
 import { data } from 'dcmjs';
 import { NativeCodecs, constants, Transcoder } from 'dcmjs-codecs';
 
-import type { DicomDict, Dict } from '../types/@types/dcmjs';
+import type { DicomDict, Dict } from '~/types/@types/dcmjs';
+
+import ImageReader from '~/ImageReader';
 
 const { TransferSyntax } = constants;
 

@@ -1,9 +1,13 @@
-import ImageReader from './ImageReader';
-import ImageTranscoder from './ImageTranscoder';
-import { FLOAT_PIXEL_DATA, PIXEL_DATA } from './Utils';
+import type { DicomDict } from '~/types/@types/dcmjs';
+import type {
+    ImageInfo,
+    PixelDataTypedArray,
+    RedactionArea,
+} from '~/types/index';
 
-import type { ImageInfo, PixelDataTypedArray, RedactionArea } from '../types';
-import type { DicomDict } from '../types/@types/dcmjs';
+import ImageReader from '~/ImageReader';
+import ImageTranscoder from '~/ImageTranscoder';
+import { FLOAT_PIXEL_DATA, PIXEL_DATA } from '~/Utils';
 
 class ImageBrush {
     private readonly dicomDict: DicomDict;
@@ -41,13 +45,13 @@ class ImageBrush {
         this.redactions.push(redactions);
     }
 
-    public apply(): void {
+    public async apply(): Promise<void> {
         if (this.locked) {
             throw new Error('Redaction already applied');
         }
 
         this.locked = true;
-        this._applyPixelDataRedaction();
+        await this._applyPixelDataRedaction();
     }
 
     public getDicomDict(): DicomDict {
@@ -58,8 +62,8 @@ class ImageBrush {
         return this.dicomDict;
     }
 
-    private _applyPixelDataRedaction(): void {
-        const frameBuffers: ArrayBufferLike[] = [];
+    private async _applyPixelDataRedaction(): Promise<void> {
+        const frameBuffers: Blob[] = [];
         const imageReader = new ImageReader(this.dicomDict, this.imageInfo);
 
         for (
@@ -67,28 +71,35 @@ class ImageBrush {
             frameIndex <= this.imageInfo.numberOfFrames;
             frameIndex++
         ) {
-            const pixelArray = imageReader.getFrame(frameIndex);
+            const pixelArray = await imageReader.getFrame(frameIndex);
 
             for (const redaction of this.redactions) {
                 this._applyRedactionToSingleFrame(pixelArray, redaction);
             }
 
-            frameBuffers.push(this._ensureEvenLength(pixelArray));
+            frameBuffers.push(
+                new Blob([this._ensureEvenLength(pixelArray)], {
+                    type: 'application/octet-stream',
+                }),
+            );
         }
 
         const vr = imageReader.getVR();
 
+        delete this.dicomDict.dict[FLOAT_PIXEL_DATA];
+        delete this.dicomDict.dict[PIXEL_DATA];
+
         if (vr === 'OF') {
             this.dicomDict.dict[FLOAT_PIXEL_DATA] = {
                 vr: 'OF',
-                Value: [this._concatArrayBuffers(frameBuffers)],
+                Value: [await this._concatFramesBuffer(frameBuffers)],
             };
             return;
         }
 
         this.dicomDict.dict[PIXEL_DATA] = {
             vr: vr,
-            Value: [this._concatArrayBuffers(frameBuffers)],
+            Value: [await this._concatFramesBuffer(frameBuffers)],
         };
     }
 
@@ -145,9 +156,7 @@ class ImageBrush {
         return { minX, maxX, minY, maxY };
     }
 
-    private _ensureEvenLength(
-        value: ArrayBufferLike | ArrayBufferView,
-    ): ArrayBufferLike {
+    private _ensureEvenLength(value: PixelDataTypedArray): ArrayBuffer {
         const bytes = this._toExactUint8Array(value);
 
         if (bytes.byteLength % 2 === 0) {
@@ -165,36 +174,17 @@ class ImageBrush {
     }
 
     private _toExactUint8Array(
-        value: ArrayBufferLike | ArrayBufferView,
-    ): Uint8Array {
-        if (ArrayBuffer.isView(value)) {
-            const sliced = value.buffer.slice(
-                value.byteOffset,
-                value.byteOffset + value.byteLength,
-            );
-
-            return new Uint8Array(sliced);
-        }
-
+        value: PixelDataTypedArray,
+    ): Uint8Array<ArrayBuffer> {
         return new Uint8Array(value.slice(0));
     }
 
-    private _concatArrayBuffers(buffers: ArrayBufferLike[]): ArrayBuffer {
-        const totalLength = buffers.reduce(
-            (sum, buffer) => sum + buffer.byteLength,
-            0,
-        );
-        const result = new Uint8Array(totalLength);
+    private async _concatFramesBuffer(frames: Blob[]): Promise<ArrayBuffer> {
+        const result = new Blob(frames, {
+            type: 'application/octet-stream',
+        });
 
-        let offset = 0;
-
-        for (const buffer of buffers) {
-            const bytes = new Uint8Array(buffer);
-            result.set(bytes, offset);
-            offset += bytes.byteLength;
-        }
-
-        return result.buffer;
+        return result.arrayBuffer();
     }
 }
 
