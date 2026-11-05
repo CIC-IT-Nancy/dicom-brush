@@ -80,7 +80,7 @@ brush.addRedactionArea({
 });
 
 // Apply the redaction
-brush.apply();
+await brush.apply();
 
 // Get the modified DICOM dictionary
 const redactedDicom = brush.getDicomDict();
