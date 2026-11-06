@@ -1,5 +1,5 @@
 // noinspection ES6PreferShortImport
-import type { Dict } from '~/types/@types/dcmjs';
+import type { Dict } from '../types/@types/dcmjs';
 
 export const IMPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2';
 export const EXPLICIT_VR_LITTLE_ENDIAN = '1.2.840.10008.1.2.1';

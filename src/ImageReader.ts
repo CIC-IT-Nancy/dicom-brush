@@ -1,8 +1,3 @@
-import { constants } from 'dcmjs-codecs';
-
-import type { DicomDict } from '~/types/@types/dcmjs';
-import type { ImageInfo, PixelDataTypedArray } from '~/types/index';
-
 import Utils, {
     BITS_ALLOCATED,
     COLUMNS,
@@ -19,10 +14,16 @@ import Utils, {
     ROWS,
     SAMPLES_PER_PIXEL,
     TRANSFER_SYNTAX_UID,
-} from '~/Utils';
+} from './Utils';
+
+import { constants } from 'dcmjs-codecs';
+
+import type { ImageInfo, PixelDataTypedArray } from '../types';
+// noinspection ES6PreferShortImport
+import type { DicomDict } from '../types/@types/dcmjs';
 
 class ImageReader {
-    private readonly blob: Blob;
+    private readonly byteArray: Uint8Array;
     private readonly imageInfo: ImageInfo;
 
     private readonly vr: 'OB' | 'OF' | 'OW';
@@ -36,22 +37,14 @@ class ImageReader {
 
         const pixelData = dicomDict.dict[PIXEL_DATA];
         if (pixelData && pixelData.Value) {
-            if (!(pixelData.Value[0] instanceof ArrayBuffer)) {
-                throw new Error('Pixel data is not an ArrayBuffer');
-            }
-            this.blob = new Blob([pixelData.Value[0]], {
-                type: 'application/octet-stream',
-            });
+            this.byteArray = new Uint8Array(pixelData.Value[0] as ArrayBuffer);
             this.vr = this.imageInfo.bitsAllocated > 8 ? 'OW' : 'OB';
         } else {
             const floatPixelData = dicomDict.dict[FLOAT_PIXEL_DATA];
             if (floatPixelData && floatPixelData.Value) {
-                if (!(floatPixelData.Value[0] instanceof ArrayBuffer)) {
-                    throw new Error('FloatPixel data is not an ArrayBuffer');
-                }
-                this.blob = new Blob([floatPixelData.Value[0]], {
-                    type: 'application/octet-stream',
-                });
+                this.byteArray = new Uint8Array(
+                    floatPixelData.Value[0] as ArrayBuffer,
+                );
                 this.vr = 'OF';
             } else {
                 throw new Error('Pixel data not found');
@@ -172,12 +165,12 @@ class ImageReader {
         };
     }
 
-    public async getFrame(index: number): Promise<PixelDataTypedArray> {
+    public getFrame(index: number): PixelDataTypedArray {
         if (index < 1 || index > this.imageInfo.numberOfFrames) {
             throw new Error('Invalid frame index');
         }
 
-        const frame = await this._extractFrame(index - 1);
+        const frame = this._extractFrame(index - 1);
 
         if (this._isNativeLittleOrBigEndian(this.imageInfo.transferSyntaxUID)) {
             return this._getLittleEndianFramePixelData(frame);
@@ -199,9 +192,7 @@ class ImageReader {
      * @param index
      * @private
      */
-    private async _extractFrame(
-        index: number,
-    ): Promise<Uint8Array<ArrayBuffer>> {
+    private _extractFrame(index: number): Uint8Array {
         let samplesPerPixel = this.imageInfo.samplesPerPixel;
 
         if (
@@ -220,25 +211,32 @@ class ImageReader {
 
         if (this.imageInfo.bitsAllocated === 8) {
             const offset = index * pixelsPerFrame;
-            if (offset >= this.blob.size) {
+            if (offset >= this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return this.blob.slice(offset, offset + pixelsPerFrame).bytes();
+            return new Uint8Array(
+                this.byteArray.buffer.slice(offset, offset + pixelsPerFrame),
+            );
         }
 
         if (this.imageInfo.bitsAllocated === 16) {
             const offset = index * pixelsPerFrame * 2;
-            if (offset >= this.blob.size) {
+            if (offset >= this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return this.blob.slice(offset, offset + pixelsPerFrame * 2).bytes();
+            return new Uint8Array(
+                this.byteArray.buffer.slice(
+                    offset,
+                    offset + pixelsPerFrame * 2,
+                ),
+            );
         }
 
         if (this.imageInfo.bitsAllocated === 1) {
             const offset = index * pixelsPerFrame * 0.125;
-            if (offset >= this.blob.size) {
+            if (offset >= this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
@@ -250,10 +248,7 @@ class ImageReader {
                 const bytePos = Math.floor(i / 8);
 
                 // Get the current byte
-                const bytes = await this.blob
-                    .slice(bytePos + offset, bytePos + offset + 1)
-                    .bytes();
-                const byte = bytes[0];
+                const byte = this.byteArray[bytePos + offset];
 
                 // Bit position (0-7) within byte
                 const bitPos = i % 8;
@@ -267,17 +262,22 @@ class ImageReader {
 
         if (this.imageInfo.bitsAllocated === 32) {
             const offset = index * pixelsPerFrame * 4;
-            if (offset >= this.blob.size) {
+            if (offset >= this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return this.blob.slice(offset, offset + pixelsPerFrame * 4).bytes();
+            return new Uint8Array(
+                this.byteArray.buffer.slice(
+                    offset,
+                    offset + pixelsPerFrame * 4,
+                ),
+            );
         }
 
         throw new Error('unsupported pixel format');
     }
 
-    private _getFrameBuffer(frame: Uint8Array<ArrayBuffer>) {
+    private _getFrameBuffer(frame: Uint8Array) {
         // if pixel data is not aligned on even boundary, shift it so we can create the 16-bit array
         // buffers on it
         if (frame.byteOffset % 2) {
@@ -320,7 +320,7 @@ class ImageReader {
     }
 
     private _getLittleEndianFramePixelData(
-        frame: Uint8Array<ArrayBuffer>,
+        frame: Uint8Array,
     ): PixelDataTypedArray {
         if (
             this.imageInfo.bitsAllocated === 8 ||
@@ -347,12 +347,12 @@ class ImageReader {
     }
 
     private _getBigEndianFramePixelData(
-        frame: Uint8Array<ArrayBuffer>,
+        frame: Uint8Array,
     ): PixelDataTypedArray {
         if (this.imageInfo.bitsAllocated === 16) {
             const { arrayBuffer, offset, length } = this._getFrameBuffer(frame);
 
-            let frameData: Int16Array<ArrayBuffer> | Uint16Array<ArrayBuffer>;
+            let frameData: Int16Array | Uint16Array;
             if (this.imageInfo.signed) {
                 frameData = new Int16Array(arrayBuffer, offset, length / 2);
             } else {

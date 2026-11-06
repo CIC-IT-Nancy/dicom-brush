@@ -45,10 +45,10 @@ declare namespace DicomBrush {
      * Possible typed arrays for representing pixel data.
      */
     export type PixelDataTypedArray =
-        | Float32Array<ArrayBuffer>
-        | Int16Array<ArrayBuffer>
-        | Uint8Array<ArrayBuffer>
-        | Uint16Array<ArrayBuffer>;
+        | Float32Array
+        | Int16Array
+        | Uint8Array
+        | Uint16Array;
 
     /**
      * Class responsible for applying redactions to DICOM images.
@@ -75,7 +75,7 @@ declare namespace DicomBrush {
         /**
          * Applies all added redactions to the pixel data.
          */
-        public async apply(): Promise<void>;
+        public apply(): void;
 
         /**
          * Returns the DICOM dataset after applying all redactions.
@@ -142,7 +142,7 @@ declare namespace DicomBrush {
          * @returns The pixel data of the requested frame as a typed array.
          * @throws Error if the frame index is out of bounds.
          */
-        public async getFrame(index: number): Promise<PixelDataTypedArray>;
+        public getFrame(index: number): PixelDataTypedArray;
 
         /**
          * Gets the Value Representation (VR) of the pixel data in the DICOM dataset.

@@ -22,16 +22,6 @@
     "removeComments": true,
 
     "rootDir": "./src",
-
-    /* TS Paths */
-    "paths": {
-      "~/*": [
-        "./src/*"
-      ],
-      "~/types/*": [
-        "./types/*"
-      ]
-    }
   },
   "include": ["src", "types"]
 }
