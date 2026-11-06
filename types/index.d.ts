@@ -134,10 +134,6 @@ declare namespace DicomBrush {
         /**
          * Extracts a specific frame from the pixel data.
          *
-         * Note:
-         *  - This function ensures that the pixel data is returned as little-endian,
-         *    performing byte swapping for big-endian transfer syntaxes if necessary.
-         *
          * @param index - The index of the frame to extract (1-based index).
          * @returns The pixel data of the requested frame as a typed array.
          * @throws Error if the frame index is out of bounds.

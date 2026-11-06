@@ -36,15 +36,17 @@ class ImageReader {
         this.imageInfo = imageInfo;
 
         const pixelData = dicomDict.dict[PIXEL_DATA];
-        if (pixelData && pixelData.Value) {
-            this.byteArray = new Uint8Array(pixelData.Value[0] as ArrayBuffer);
+        if (pixelData && pixelData.Value && pixelData.Value[0]) {
+            this.byteArray = this._toUint8Array(pixelData.Value[0]);
             this.vr = this.imageInfo.bitsAllocated > 8 ? 'OW' : 'OB';
         } else {
             const floatPixelData = dicomDict.dict[FLOAT_PIXEL_DATA];
-            if (floatPixelData && floatPixelData.Value) {
-                this.byteArray = new Uint8Array(
-                    floatPixelData.Value[0] as ArrayBuffer,
-                );
+            if (
+                floatPixelData &&
+                floatPixelData.Value &&
+                floatPixelData.Value[0]
+            ) {
+                this.byteArray = this._toUint8Array(floatPixelData.Value[0]);
                 this.vr = 'OF';
             } else {
                 throw new Error('Pixel data not found');
@@ -183,6 +185,26 @@ class ImageReader {
         return this.vr;
     }
 
+    private _toUint8Array(value: unknown): Uint8Array {
+        if (value instanceof Uint8Array) {
+            return value;
+        }
+
+        if (ArrayBuffer.isView(value)) {
+            return new Uint8Array(
+                value.buffer,
+                value.byteOffset,
+                value.byteLength,
+            );
+        }
+
+        if (value instanceof ArrayBuffer) {
+            return new Uint8Array(value);
+        }
+
+        throw new Error('Invalid pixel data format');
+    }
+
     /**
      * This function is a modified version of `getUncompressedImageFrame` from cornerstonejs `wadouri` image loader.
      * https://github.com/cornerstonejs/cornerstone3D/blob/4cd423bc8a4340447ff8ee37e34b9455ab6bf51d/packages/dicomImageLoader/src/imageLoader/wadouri/getUncompressedImageFrame.ts#L8
@@ -211,88 +233,35 @@ class ImageReader {
 
         if (this.imageInfo.bitsAllocated === 8) {
             const offset = index * pixelsPerFrame;
-            if (offset >= this.byteArray.length) {
+            const length = pixelsPerFrame;
+            if (offset + length > this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return new Uint8Array(
-                this.byteArray.buffer.slice(offset, offset + pixelsPerFrame),
-            );
+            return this.byteArray.subarray(offset, offset + length);
         }
 
         if (this.imageInfo.bitsAllocated === 16) {
             const offset = index * pixelsPerFrame * 2;
-            if (offset >= this.byteArray.length) {
+            const length = pixelsPerFrame * 2;
+            if (offset + length > this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return new Uint8Array(
-                this.byteArray.buffer.slice(
-                    offset,
-                    offset + pixelsPerFrame * 2,
-                ),
-            );
-        }
-
-        if (this.imageInfo.bitsAllocated === 1) {
-            const offset = index * pixelsPerFrame * 0.125;
-            if (offset >= this.byteArray.length) {
-                throw new Error('frame exceeds size of pixelData');
-            }
-
-            // https://github.com/cornerstonejs/cornerstone3D/blob/4cd423bc8a4340447ff8ee37e34b9455ab6bf51d/packages/dicomImageLoader/src/imageLoader/wadouri/unpackBinaryFrame.ts#L12
-            const framePixel = new Uint8Array(pixelsPerFrame);
-
-            for (let i = 0; i < pixelsPerFrame; i++) {
-                // Compute byte position
-                const bytePos = Math.floor(i / 8);
-
-                // Get the current byte
-                const byte = this.byteArray[bytePos + offset];
-
-                // Bit position (0-7) within byte
-                const bitPos = i % 8;
-
-                // Check whether a bit at bit-pos is set
-                framePixel[i] = byte & (1 << bitPos) ? 1 : 0;
-            }
-
-            return framePixel;
+            return this.byteArray.subarray(offset, offset + length);
         }
 
         if (this.imageInfo.bitsAllocated === 32) {
             const offset = index * pixelsPerFrame * 4;
-            if (offset >= this.byteArray.length) {
+            const length = pixelsPerFrame * 4;
+            if (offset + length > this.byteArray.length) {
                 throw new Error('frame exceeds size of pixelData');
             }
 
-            return new Uint8Array(
-                this.byteArray.buffer.slice(
-                    offset,
-                    offset + pixelsPerFrame * 4,
-                ),
-            );
+            return this.byteArray.subarray(offset, offset + length);
         }
 
         throw new Error('unsupported pixel format');
-    }
-
-    private _getFrameBuffer(frame: Uint8Array) {
-        // if pixel data is not aligned on even boundary, shift it so we can create the 16-bit array
-        // buffers on it
-        if (frame.byteOffset % 2) {
-            return {
-                arrayBuffer: frame.buffer.slice(frame.byteOffset),
-                offset: 0,
-                length: frame.length,
-            };
-        }
-
-        return {
-            arrayBuffer: frame.buffer,
-            offset: frame.byteOffset,
-            length: frame.length,
-        };
     }
 
     /**
@@ -322,25 +291,32 @@ class ImageReader {
     private _getLittleEndianFramePixelData(
         frame: Uint8Array,
     ): PixelDataTypedArray {
-        if (
-            this.imageInfo.bitsAllocated === 8 ||
-            this.imageInfo.bitsAllocated === 1
-        ) {
+        if (this.imageInfo.bitsAllocated === 8) {
             return frame;
         }
 
-        const { arrayBuffer, offset, length } = this._getFrameBuffer(frame);
-
         if (this.imageInfo.bitsAllocated === 16) {
             if (this.imageInfo.signed) {
-                return new Int16Array(arrayBuffer, offset, length / 2);
+                return new Int16Array(
+                    frame.buffer,
+                    frame.byteOffset,
+                    frame.byteLength / 2,
+                );
             }
 
-            return new Uint16Array(arrayBuffer, offset, length / 2);
+            return new Uint16Array(
+                frame.buffer,
+                frame.byteOffset,
+                frame.byteLength / 2,
+            );
         }
 
         if (this.imageInfo.bitsAllocated === 32) {
-            return new Float32Array(arrayBuffer, offset, length / 4);
+            return new Float32Array(
+                frame.buffer,
+                frame.byteOffset,
+                frame.byteLength / 4,
+            );
         }
 
         throw new Error('unsupported pixel format');
@@ -350,22 +326,19 @@ class ImageReader {
         frame: Uint8Array,
     ): PixelDataTypedArray {
         if (this.imageInfo.bitsAllocated === 16) {
-            const { arrayBuffer, offset, length } = this._getFrameBuffer(frame);
-
-            let frameData: Int16Array | Uint16Array;
             if (this.imageInfo.signed) {
-                frameData = new Int16Array(arrayBuffer, offset, length / 2);
-            } else {
-                frameData = new Uint16Array(arrayBuffer, offset, length / 2);
+                return new Int16Array(
+                    frame.buffer,
+                    frame.byteOffset,
+                    frame.byteLength / 2,
+                );
             }
 
-            // byte swap
-            for (let i = 0; i < frameData.length; i++) {
-                const val = frameData[i];
-                frameData[i] = ((val & 0xff) << 8) | ((val >> 8) & 0xff);
-            }
-
-            return frameData;
+            return new Uint16Array(
+                frame.buffer,
+                frame.byteOffset,
+                frame.byteLength / 2,
+            );
         }
 
         if (this.imageInfo.bitsAllocated === 8) {
