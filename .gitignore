@@ -13,3 +13,4 @@ yarn-error.log*
 .vscode/*
 .idea
 .junie
+test.dcm

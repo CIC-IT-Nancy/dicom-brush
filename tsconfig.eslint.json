@@ -6,6 +6,7 @@
   "include": [
     "src",
     "types",
+    "tools",
     "eslint.config.mjs",
     "build.ts"
   ]

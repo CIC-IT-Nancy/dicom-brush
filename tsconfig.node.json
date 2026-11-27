@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "types": ["node"],
+        "lib": [
+            "DOM",
+            "DOM.Iterable",
+            "ESNext"
+        ],
+        "target": "ESNext",
+        "composite": true,
+        "module": "ESNext",
+        "moduleResolution": "node16",
+        "allowSyntheticDefaultImports": true,
+        "resolveJsonModule": true,
+    },
+    "include": [
+        "tools",
+    ]
+}

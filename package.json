@@ -1,6 +1,6 @@
 {
   "name": "@cic-it-nancy/dicom-brush",
-  "version": "1.0.1-rc.0",
+  "version": "2.0.0",
   "description": "A TypeScript/JavaScript library for manipulating DICOM images, enabling redaction (masking) of image regions, metadata extraction, and transfer syntax transcoding.",
   "license": "LGPL-3.0",
   "author": "CIC-IT Nancy",
@@ -17,7 +17,9 @@
     "build:typescript": "tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json",
     "build:browser": "esbuild ./lib/esm/index.js --bundle --platform=browser --outfile=./lib/browser.js",
     "build:browser:min": "esbuild ./lib/esm/index.js --bundle --platform=browser --minify --outfile=./lib/browser.min.js",
-    "prepublish": "npm run build"
+    "prepublish": "npm run build",
+    "benchmark": "node --expose-gc --import tsx tools/benchmark.ts",
+    "test": "tsx tools/test.ts"
   },
   "type": "module",
   "main": "./lib/cjs/index.js",
@@ -34,11 +36,13 @@
   "devDependencies": {
     "@eslint/js": "~9.39.5",
     "@stylistic/eslint-plugin": "~5.10.0",
+    "@types/node": "^24.19.4",
     "eslint": "~9.39.5",
     "eslint-config-prettier": "~10.1.8",
     "eslint-plugin-import": "~2.32.0",
     "eslint-plugin-prettier": "~5.5.7",
     "globals": "~17.13.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "~8.71.2"
   }

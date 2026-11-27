@@ -2,16 +2,19 @@ import ImageReader from './ImageReader';
 
 // @ts-expect-error
 import { data } from 'dcmjs';
-import { NativeCodecs, constants, Transcoder } from 'dcmjs-codecs';
+import codecs from 'dcmjs-codecs';
 
 import type { DicomDict, Dict } from '../types/@types/dcmjs';
+import type { Transcoder as TranscoderType } from 'dcmjs-codecs';
+
+const { NativeCodecs, constants, Transcoder } = codecs;
 
 const { TransferSyntax } = constants;
 
 class ImageTranscoder {
     private readonly dicomDict: DicomDict;
     private readonly transferSyntaxUID: string;
-    private readonly transcoder: Transcoder;
+    private readonly transcoder: TranscoderType;
 
     public constructor(dicomDict: DicomDict) {
         this.dicomDict = dicomDict;
@@ -150,7 +153,7 @@ class ImageTranscoder {
         );
     }
 
-    private _createTranscoder(): Transcoder {
+    private _createTranscoder(): TranscoderType {
         const dataset = data.DicomMetaDictionary.naturalizeDataset(
             this.dicomDict.dict,
         );

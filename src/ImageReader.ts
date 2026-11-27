@@ -16,11 +16,13 @@ import Utils, {
     TRANSFER_SYNTAX_UID,
 } from './Utils';
 
-import { constants } from 'dcmjs-codecs';
+import codecs from 'dcmjs-codecs';
 
 import type { ImageInfo, PixelDataTypedArray } from '../types';
 // noinspection ES6PreferShortImport
 import type { DicomDict } from '../types/@types/dcmjs';
+
+const { constants } = codecs;
 
 class ImageReader {
     private readonly byteArray: Uint8Array;
